@@ -1,0 +1,19 @@
+{
+    "energy": 95.67999999999944,
+    "happiness": 99.98799999999999,
+    "hunger": 99.91,
+    "thirst": 99.94000000000001,
+    "coins": 100,
+    "xp": 36,
+    "level": 1,
+    "is_night": true,
+    "weather": "Overcast",
+    "x": 550,
+    "inventory": {
+        "Fish": 3,
+        "Milk": 2,
+        "Yarn": 1,
+        "Ball": 1,
+        "Mouse Toy": 1
+    }
+}
