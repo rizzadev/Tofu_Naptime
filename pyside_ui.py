@@ -2,7 +2,7 @@ import math
 from datetime import datetime
 
 from PySide6.QtCore import QPointF, QRectF, QTimer, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPen, QBrush
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush
 from PySide6.QtWidgets import QMainWindow, QPushButton, QWidget
 
 
@@ -203,7 +203,7 @@ class GameView(QWidget):
         self.draw_hover_particles(painter)
         self.draw_toys(painter)
         self.draw_status(painter)
-        self.draw_pet(painter)
+        self.draw_reference_cat(painter)
         self.draw_food(painter)
         self.draw_action(painter)
         self.draw_clock(painter)
@@ -395,7 +395,7 @@ class GameView(QWidget):
         self.fill_rect(painter, (20, 714, 190, 48), "#fff8fb", 22)
         self.fill_rect(painter, (215, 714, 190, 48), "#ec8ac7", 22)
         self.draw_text(painter, 115, 746, "CATS", "#cc568d", 20, True, Qt.AlignmentFlag.AlignCenter)
-        self.draw_text(painter, 310, 746, "THEMES", "#fff8fb", 18, True, Qt.AlignmentFlag.AlignCenter)
+        self.draw_text(painter, 300, 746, "THEMES", "#fff8fb", 18, True, Qt.AlignmentFlag.AlignCenter)
 
         cards = ((30, "SLEEPY", "#fff2e8"), (220, "HAPPY", "#fffaf2"), (410, "PLAYFUL", "#d9d4f8"), (600, "DREAMY", "#ffe4f1"))
         for x, label, color in cards:
@@ -475,6 +475,255 @@ class GameView(QWidget):
             painter.setPen(QPen(QColor(255, 255, 255, 190), 2))
             painter.drawArc(QRectF(x - 145, y - 145, 290, 290), 25 * 16, 55 * 16)
             painter.drawArc(QRectF(x - 155, y - 155, 310, 310), 205 * 16, 55 * 16)
+
+    def draw_pixel_pet(self, painter):
+        """Draw Tofu as a crisp, block-built pixel cat."""
+        x = int(self.state.x)
+        y = int(self.state.y)
+        hovered = self.window.hovered
+        strength = self.window.hover_strength
+        bob = int(math.sin(self.window.phase * 3) * 3) if self.state.walking else 0
+        if self.state.sleeping:
+            bob += int(math.sin(self.window.phase) * 2)
+        y += bob - int(strength * 2)
+
+        dark = QColor("#48170f")
+        cream = QColor("#f4e9dd")
+        shadow = QColor("#a98563")
+        brown = QColor("#805b2f")
+        pink = QColor("#f4b5bb")
+        blue = QColor("#43b9ef")
+        yellow = QColor("#ffd91c")
+
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        def block(left, top, width, height, color):
+            painter.setBrush(color)
+            painter.drawRect(QRectF(left, top, width, height))
+
+        # Ground shadow and curled tail.
+        block(x - 116, y + 78, 220, 14, QColor("#b78e82"))
+        block(x + 92, y + 34, 32, 48, dark)
+        block(x + 116, y + 12, 32, 64, dark)
+        block(x + 132, y + 28, 32, 48, dark)
+        block(x + 116, y + 12, 32, 32, brown)
+        block(x + 100, y + 34, 48, 32, shadow)
+        block(x + 116, y + 50, 32, 26, brown)
+
+        # Ears and dark pixel outline.
+        block(x - 112, y - 126, 48, 32, dark)
+        block(x - 128, y - 108, 80, 48, dark)
+        block(x + 48, y - 108, 80, 48, dark)
+        block(x + 64, y - 126, 48, 32, dark)
+        block(x - 96, y - 108, 48, 48, shadow)
+        block(x + 64, y - 108, 48, 48, shadow)
+        block(x - 80, y - 92, 32, 32, brown)
+        block(x + 64, y - 92, 32, 32, brown)
+
+        # Head silhouette, kept deliberately stepped like the reference sprite.
+        block(x - 144, y - 76, 32, 96, dark)
+        block(x + 112, y - 76, 32, 96, dark)
+        block(x - 128, y - 92, 240, 176, dark)
+        block(x - 112, y - 76, 208, 160, cream)
+        block(x - 128, y - 44, 240, 112, cream)
+        block(x - 96, y + 52, 176, 48, cream)
+
+        # Brown forehead and muzzle markings.
+        block(x - 32, y - 76, 64, 32, shadow)
+        block(x - 48, y - 60, 96, 48, shadow)
+        block(x - 32, y - 44, 64, 48, brown)
+        block(x - 64, y + 4, 128, 48, shadow)
+        block(x - 32, y + 20, 64, 32, brown)
+
+        # Eyes follow the cursor while keeping a square pixel shape.
+        gaze_x = int(max(-8, min(8, (self.window.pointer.x() - x) / 30)) * strength)
+        gaze_y = int(max(-6, min(6, (self.window.pointer.y() - y) / 35)) * strength)
+        if self.state.sleeping and not hovered:
+            block(x - 80, y - 4, 32, 8, dark)
+            block(x + 48, y - 4, 32, 8, dark)
+        else:
+            block(x - 80 + gaze_x, y - 12 + gaze_y, 32, 32, dark)
+            block(x + 48 + gaze_x, y - 12 + gaze_y, 32, 32, dark)
+            block(x - 72 + gaze_x, y - 8 + gaze_y, 16, 20, blue)
+            block(x + 56 + gaze_x, y - 8 + gaze_y, 16, 20, blue)
+
+        # Nose, mouth, cheeks, whiskers.
+        block(x - 16, y + 20, 32, 16, dark)
+        block(x - 8, y + 36, 16, 16, brown)
+        block(x - 96, y + 24, 32, 16, pink)
+        block(x + 64, y + 24, 32, 16, pink)
+        painter.setPen(QPen(dark, 8))
+        painter.drawLine(x - 112, y + 32, x - 144, y + 24)
+        painter.drawLine(x - 112, y + 44, x - 144, y + 48)
+        painter.drawLine(x + 112, y + 32, x + 144, y + 24)
+        painter.drawLine(x + 112, y + 44, x + 144, y + 48)
+
+        # Body and paws.
+        block(x - 96, y + 76, 192, 112, dark)
+        block(x - 80, y + 68, 160, 120, cream)
+        block(x - 96, y + 100, 192, 72, cream)
+        block(x - 80, y + 156, 48, 32, dark)
+        block(x + 32, y + 156, 48, 32, dark)
+        block(x - 64, y + 156, 48, 20, brown)
+        block(x + 48, y + 156, 32, 20, brown)
+
+        # Collar and bell.
+        block(x - 80, y + 76, 160, 16, shadow)
+        block(x - 16, y + 92, 32, 32, yellow)
+        block(x - 8, y + 100, 16, 16, QColor("#ff9f16"))
+
+        if self.state.eating:
+            block(x - 16, y + 42, 32, 16, dark)
+
+        if hovered:
+            lift = int(math.sin(self.window.phase * 3) * 4)
+            painter.setPen(QPen(QColor("#fff8ff"), 4))
+            painter.drawLine(x - 160, y - 132 - lift, x - 144, y - 148 - lift)
+            painter.drawLine(x + 144, y - 148 - lift, x + 160, y - 132 - lift)
+
+    def draw_reference_cat(self, painter):
+        x = self.state.x
+        y = self.state.y
+        hovered = self.window.hovered
+        strength = self.window.hover_strength
+        painter.save()
+        painter.translate(x, y)
+        painter.scale(0.40, 0.40)
+        painter.translate(-x, -y)
+        bob = math.sin(self.window.phase * 3) * 3 if self.state.walking else math.sin(self.window.phase) * 1.2
+        y += bob - strength * 2
+
+        outline = QColor("#b86f2e")
+        orange = QColor("#ffc46e")
+        light_orange = QColor("#ffd486")
+        white = QColor("#fffdf9")
+        dark = QColor("#4b2418")
+        pink = QColor("#f48f78")
+
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        # Soft ground shadow and oversized curled tail.
+        painter.setBrush(QColor(157, 102, 74, 80))
+        painter.drawEllipse(QRectF(x - 135, y + 100, 270, 25))
+        painter.setBrush(outline)
+        tail = QPainterPath()
+        tail.moveTo(x + 95, y + 135)
+        tail.cubicTo(x + 155, y + 155, x + 185, y + 115, x + 190, y + 55)
+        tail.cubicTo(x + 194, y + 4, x + 235, y - 2, x + 235, y + 48)
+        tail.cubicTo(x + 234, y + 105, x + 198, y + 155, x + 145, y + 170)
+        tail.cubicTo(x + 120, y + 177, x + 102, y + 165, x + 95, y + 135)
+        painter.setPen(QPen(outline, 18))
+        painter.setBrush(orange)
+        painter.drawPath(tail)
+
+        # Separate the low body, ears, and head so the silhouette reads as a loaf cat.
+        body = QPainterPath()
+        body.moveTo(x - 110, y + 25)
+        body.cubicTo(x - 138, y + 65, x - 130, y + 145, x - 88, y + 174)
+        body.cubicTo(x - 45, y + 198, x + 48, y + 198, x + 92, y + 174)
+        body.cubicTo(x + 130, y + 145, x + 138, y + 65, x + 110, y + 25)
+        body.cubicTo(x + 72, y + 4, x - 72, y + 4, x - 110, y + 25)
+        body.closeSubpath()
+        painter.setPen(QPen(outline, 7))
+        painter.setBrush(orange)
+        painter.drawPath(body)
+
+        left_ear = QPainterPath()
+        left_ear.moveTo(x - 132, y - 68)
+        left_ear.cubicTo(x - 143, y - 108, x - 143, y - 157, x - 118, y - 170)
+        left_ear.cubicTo(x - 95, y - 181, x - 65, y - 150, x - 35, y - 116)
+        left_ear.closeSubpath()
+        right_ear = QPainterPath()
+        right_ear.moveTo(x + 132, y - 68)
+        right_ear.cubicTo(x + 143, y - 108, x + 143, y - 157, x + 118, y - 170)
+        right_ear.cubicTo(x + 95, y - 181, x + 65, y - 150, x + 35, y - 116)
+        right_ear.closeSubpath()
+        painter.setBrush(outline)
+        painter.drawPath(left_ear)
+        painter.drawPath(right_ear)
+
+        painter.setBrush(light_orange)
+        painter.drawRoundedRect(QRectF(x - 119, y - 150, 48, 70), 24, 24)
+        painter.drawRoundedRect(QRectF(x + 71, y - 150, 48, 70), 24, 24)
+
+        painter.setBrush(orange)
+        painter.drawRoundedRect(QRectF(x - 155, y - 126, 310, 212), 100, 100)
+
+        # Broad cream chest and low rounded body patch.
+        belly = QPainterPath()
+        belly.moveTo(x - 82, y + 48)
+        belly.cubicTo(x - 72, y + 30, x - 46, y + 26, x - 24, y + 30)
+        belly.cubicTo(x - 8, y + 32, x + 8, y + 32, x + 24, y + 30)
+        belly.cubicTo(x + 52, y + 25, x + 78, y + 35, x + 84, y + 55)
+        belly.cubicTo(x + 100, y + 100, x + 80, y + 157, x + 45, y + 174)
+        belly.cubicTo(x + 10, y + 188, x - 45, y + 186, x - 76, y + 168)
+        belly.cubicTo(x - 108, y + 148, x - 106, y + 90, x - 82, y + 48)
+        belly.closeSubpath()
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(white)
+        painter.drawPath(belly)
+
+        # White lower face with the small center point of the reference shape.
+        face_patch = QPainterPath()
+        face_patch.moveTo(x - 154, y - 8)
+        face_patch.cubicTo(x - 132, y + 28, x - 96, y + 52, x - 55, y + 43)
+        face_patch.cubicTo(x - 25, y + 36, x - 12, y + 10, x, y - 12)
+        face_patch.cubicTo(x + 12, y + 10, x + 25, y + 36, x + 55, y + 43)
+        face_patch.cubicTo(x + 96, y + 52, x + 132, y + 28, x + 154, y - 8)
+        face_patch.cubicTo(x + 145, y + 42, x + 110, y + 72, x, y + 78)
+        face_patch.cubicTo(x - 110, y + 72, x - 145, y + 42, x - 154, y - 8)
+        face_patch.closeSubpath()
+        painter.setBrush(white)
+        painter.drawPath(face_patch)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#fff4df"))
+        painter.drawEllipse(QRectF(x - 54, y + 30, 108, 64))
+
+        # Tabby forehead stripes.
+        stripe_pen = QPen(QColor("#e99a43"), 12)
+        stripe_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(stripe_pen)
+        painter.drawLine(x - 38, y - 105, x - 28, y - 65)
+        painter.drawLine(x, y - 112, x, y - 65)
+        painter.drawLine(x + 38, y - 105, x + 28, y - 65)
+
+        gaze_x = max(-7, min(7, (self.window.pointer.x() - x) / 35)) * strength
+        gaze_y = max(-5, min(5, (self.window.pointer.y() - y) / 40)) * strength
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(dark)
+        painter.drawEllipse(QRectF(x - 80 + gaze_x, y - 25 + gaze_y, 42, 48))
+        painter.drawEllipse(QRectF(x + 38 + gaze_x, y - 25 + gaze_y, 42, 48))
+
+        # Nose and tiny mouth.
+        painter.setBrush(pink)
+        painter.drawEllipse(QRectF(x - 10, y + 12, 20, 14))
+        painter.setPen(QPen(outline, 4))
+        painter.drawArc(QRectF(x - 5, y + 19, 10, 16), 180 * 16, 180 * 16)
+
+        # Cheeks, whiskers, and paws.
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#f6aa9b"))
+        painter.drawEllipse(QRectF(x - 105, y + 20, 38, 16))
+        painter.drawEllipse(QRectF(x + 67, y + 20, 38, 16))
+        whisker_pen = QPen(outline, 5)
+        whisker_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(whisker_pen)
+        painter.drawLine(x - 112, y + 35, x - 160, y + 25)
+        painter.drawLine(x - 112, y + 48, x - 160, y + 50)
+        painter.drawLine(x + 112, y + 35, x + 160, y + 25)
+        painter.drawLine(x + 112, y + 48, x + 160, y + 50)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(white)
+        painter.drawEllipse(QRectF(x - 72, y + 95, 58, 65))
+        painter.drawEllipse(QRectF(x + 20, y + 95, 58, 65))
+
+        if hovered:
+            painter.setPen(QPen(QColor(255, 255, 255, 190), 3))
+            painter.drawArc(QRectF(x - 180, y - 190, 360, 360), 25 * 16, 55 * 16)
+            painter.drawArc(QRectF(x - 190, y - 200, 380, 380), 205 * 16, 55 * 16)
+
+        painter.restore()
 
     def draw_food(self, painter):
         hovered = self.hover_target == "food"
