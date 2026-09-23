@@ -15,6 +15,15 @@ class TofuAnimation:
         self.breath = 0
         self.tail = 0
         self.walk = 0
+        self.idle_phase = random.uniform(0, math.tau)
+        self.interaction_phase = 0
+        self.pointer_x = 0
+        self.pointer_y = 0
+        self.hover_strength = 0.0
+        self.hovered = False
+
+        self.canvas.bind("<Motion>", self.on_pointer_move)
+        self.canvas.bind("<Leave>", self.on_pointer_leave)
 
         self.blink_timer = 0
         self.blink = False
@@ -28,6 +37,76 @@ class TofuAnimation:
         self.food_timer = 0
         self.food_x = 0
         self.food_y = 0
+
+    def on_pointer_move(self, event):
+
+        self.pointer_x = event.x
+        self.pointer_y = event.y
+        self.hovered = self.is_over_tofu(event.x, event.y)
+
+    def on_pointer_leave(self, event):
+
+        self.hovered = False
+
+    def is_over_tofu(self, pointer_x, pointer_y):
+
+        distance_x = (pointer_x - self.state.x) / 120
+        distance_y = (pointer_y - self.state.y) / 140
+
+        return distance_x * distance_x + distance_y * distance_y <= 1
+
+    def draw_background_hover(self):
+
+        self.canvas.delete("hover-bg")
+
+        if not 0 <= self.pointer_x <= 1100 or not 0 <= self.pointer_y <= 760:
+            return
+
+        pulse = 1 + math.sin(self.interaction_phase) * 0.08
+        pointer_x = self.pointer_x
+        pointer_y = self.pointer_y
+
+        if pointer_y >= 520:
+
+            radius_x = 72 * pulse
+            radius_y = 12 * pulse
+
+            self.canvas.create_oval(
+                pointer_x - radius_x,
+                pointer_y - radius_y,
+                pointer_x + radius_x,
+                pointer_y + radius_y,
+                fill="#f0c48d",
+                outline="",
+                stipple="gray25",
+                tags="hover-bg"
+            )
+
+            self.canvas.create_line(
+                pointer_x - 48,
+                pointer_y,
+                pointer_x + 48,
+                pointer_y,
+                fill="#f8d8a8",
+                width=2,
+                stipple="gray50",
+                tags="hover-bg"
+            )
+
+        else:
+
+            shimmer = 16 + math.sin(self.interaction_phase) * 3
+
+            self.canvas.create_oval(
+                pointer_x - shimmer,
+                pointer_y - shimmer,
+                pointer_x + shimmer,
+                pointer_y + shimmer,
+                fill="#fff0c2",
+                outline="",
+                stipple="gray50",
+                tags="hover-bg"
+            )
 
     # ==========================================
     # DRAW TOFU
@@ -43,6 +122,22 @@ class TofuAnimation:
         x = state.x
         y = state.y
 
+        target_hover = 1.0 if self.hovered else 0.0
+        if self.hover_strength < target_hover:
+            self.hover_strength = min(1.0, self.hover_strength + 0.12)
+        else:
+            self.hover_strength = max(0.0, self.hover_strength - 0.08)
+
+        pointer_dx = max(-4, min(4, (self.pointer_x - x) / 35))
+        pointer_dy = max(-3, min(3, (self.pointer_y - y) / 40))
+        gaze_x = pointer_dx * self.hover_strength
+        gaze_y = pointer_dy * self.hover_strength
+
+        # Small, independent motions keep the pose from looking mechanical.
+        idle_sway = math.sin(self.idle_phase) * 1.5
+        direction = 1 if state.target_x >= state.x else -1
+        y -= 2 * self.hover_strength
+
         # ==========================================
         # BREATHING
         # ==========================================
@@ -51,11 +146,10 @@ class TofuAnimation:
 
         if state.sleeping:
 
-            breathing = math.sin(
-                self.breath
-            ) * 4
+            breathing = math.sin(self.breath) * 3.5
+            y += math.sin(self.breath * 0.5) * 1.2
 
-        y += breathing
+        y += breathing + idle_sway
 
         # ==========================================
         # WALKING
@@ -65,9 +159,11 @@ class TofuAnimation:
 
         if state.walking:
 
-            body_move = math.sin(
-                self.walk
-            ) * 4
+            body_move = math.sin(self.walk) * 3.5
+
+        elif not state.sleeping:
+
+            body_move = math.sin(self.idle_phase * 0.7) * 1.2
 
         # ==========================================
         # EATING MOVEMENT
@@ -77,17 +173,23 @@ class TofuAnimation:
 
         if state.eating:
 
-            eating_move = math.sin(
-                self.food_timer * 0.5
-            ) * 3
+            eating_move = math.sin(self.food_timer * 0.5) * 3
+
+        drinking_move = 0
+
+        if state.drinking:
+
+            drinking_move = math.sin(self.food_timer * 0.35) * 1.8
+
+        eating_move += drinking_move
 
         # ==========================================
         # TAIL
         # ==========================================
 
-        tail_move = math.sin(
-            self.tail
-        ) * 8
+        tail_move = math.sin(self.tail + (0.35 if state.walking else 0)) * (
+            11 if state.playing else 6
+        )
 
         canvas.create_line(
 
@@ -95,7 +197,7 @@ class TofuAnimation:
 
             y + 35 + body_move,
 
-            x + 105,
+            x + 105 + direction * 4,
 
             y + 45 + tail_move,
 
@@ -111,6 +213,17 @@ class TofuAnimation:
 
             joinstyle=tk.ROUND,
 
+            tags="tofu"
+        )
+
+        # A soft contact shadow anchors the character to the floor.
+        canvas.create_oval(
+            x - 105,
+            y + 68,
+            x + 105,
+            y + 86,
+            fill="#9b725d",
+            outline="",
             tags="tofu"
         )
 
@@ -322,11 +435,11 @@ class TofuAnimation:
 
                 x - 62,
 
-                y - 28 + body_move + eating_move,
+                y - 28 + body_move + eating_move + gaze_y,
 
-                x - 32,
+                x - 32 + gaze_x,
 
-                y + 5 + body_move + eating_move,
+                y + 5 + body_move + eating_move + gaze_y,
 
                 fill="#493b45",
 
@@ -339,11 +452,11 @@ class TofuAnimation:
 
                 x + 8,
 
-                y - 28 + body_move + eating_move,
+                y - 28 + body_move + eating_move + gaze_y,
 
-                x + 38,
+                x + 38 + gaze_x,
 
-                y + 5 + body_move + eating_move,
+                y + 5 + body_move + eating_move + gaze_y,
 
                 fill="#493b45",
 
@@ -358,11 +471,11 @@ class TofuAnimation:
 
                 x - 55,
 
-                y - 22 + body_move + eating_move,
+                y - 22 + body_move + eating_move + gaze_y,
 
-                x - 48,
+                x - 48 + gaze_x,
 
-                y - 15 + body_move + eating_move,
+                y - 15 + body_move + eating_move + gaze_y,
 
                 fill="white",
 
@@ -375,11 +488,11 @@ class TofuAnimation:
 
                 x + 15,
 
-                y - 22 + body_move + eating_move,
+                y - 22 + body_move + eating_move + gaze_y,
 
-                x + 22,
+                x + 22 + gaze_x,
 
-                y - 15 + body_move + eating_move,
+                y - 15 + body_move + eating_move + gaze_y,
 
                 fill="white",
 
@@ -408,6 +521,31 @@ class TofuAnimation:
 
             tags="tofu"
         )
+
+        if self.hover_strength > 0.05:
+
+            whisker_color = "#d99496"
+            whisker_shift = math.sin(self.interaction_phase) * 1.5
+
+            canvas.create_line(
+                x - 68,
+                y + 5 + body_move + eating_move,
+                x - 108,
+                y - 2 + body_move + eating_move + whisker_shift,
+                fill=whisker_color,
+                width=2,
+                tags="tofu"
+            )
+
+            canvas.create_line(
+                x + 48,
+                y + 5 + body_move + eating_move,
+                x + 88,
+                y - 2 + body_move + eating_move - whisker_shift,
+                fill=whisker_color,
+                width=2,
+                tags="tofu"
+            )
 
         # ==========================================
         # MOUTH
@@ -536,7 +674,7 @@ class TofuAnimation:
 
             x + 15,
 
-            y + 75 + paw_move,
+            y + 75 + paw_move + drinking_move,
 
             fill="#fff1d6",
 
@@ -546,6 +684,21 @@ class TofuAnimation:
 
             tags="tofu"
         )
+
+        if state.walking:
+
+            rear_paw_move = math.sin(self.walk + math.pi) * 6
+
+            canvas.create_oval(
+                x - 75,
+                y + 42 + rear_paw_move,
+                x - 30,
+                y + 73 + rear_paw_move,
+                fill="#fff1d6",
+                outline="#dfc9a8",
+                width=3,
+                tags="tofu"
+            )
 
         # ==========================================
         # FOOD
@@ -570,11 +723,10 @@ class TofuAnimation:
         y = self.state.y
 
         # Food moves up and down
-        bounce = math.sin(
-            self.food_timer * 0.35
-        ) * 5
+        bounce = math.sin(self.food_timer * 0.35) * 5
+        food_sway = math.sin(self.food_timer * 0.18) * 3
 
-        food_x = x + 95
+        food_x = x + 95 + food_sway
 
         food_y = y + 45 + bounce
 
@@ -697,6 +849,8 @@ class TofuAnimation:
 
             item["y"] -= 1
 
+            item["x"] += math.sin(item["life"] * 0.12) * 0.25
+
             item["life"] += 1
 
             if item["life"] > 80:
@@ -738,11 +892,11 @@ class TofuAnimation:
 
         self.blink_timer += 1
 
-        if self.blink_timer > 100:
+        if self.blink_timer > 115:
 
             self.blink = True
 
-        if self.blink_timer > 106:
+        if self.blink_timer > 121:
 
             self.blink = False
 
@@ -782,17 +936,21 @@ class TofuAnimation:
 
     def update(self):
 
-        self.breath += 0.12
+        self.breath += 0.10
 
-        self.tail += 0.08
+        self.tail += 0.11 if self.state.playing else 0.07
 
-        self.walk += 0.25
+        self.walk += 0.30 if self.state.walking else 0.08
+        self.idle_phase += 0.045
+        self.interaction_phase += 0.16 if self.hovered else 0.05
 
         self.state.update_position()
 
         self.update_blink()
 
         self.update_food()
+
+        self.draw_background_hover()
 
         self.draw()
 

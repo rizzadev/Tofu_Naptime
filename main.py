@@ -1,238 +1,69 @@
-import tkinter as tk
+import os
+import sys
+
+os.environ.setdefault("QT_QPA_FONTDIR", r"C:\Windows\Fonts")
+
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 
 from functions import TofuState
-from pet import Pet
 from inventory import Inventory
-from shop import Shop
 from minigames import MiniGames
+from pet import Pet
+from pyside_ui import TofuWindow
 from save import SaveSystem
+from shop import Shop
 from weather import Weather
-from ui import TofuUI
-from animation import TofuAnimation
 
 
 class TofuApp:
 
     def __init__(self):
-
-        # ==========================================
-        # WINDOW
-        # ==========================================
-
-        self.window = tk.Tk()
-
-        self.window.title(
-            "Tofu's Dreamy Nap"
-        )
-
-        self.window.protocol(
-            "WM_DELETE_WINDOW",
-            self.close
-        )
-
-        # ==========================================
-        # STATE
-        # ==========================================
-
+        self.qt_app = QApplication(sys.argv)
         self.state = TofuState()
-
-        # ==========================================
-        # PET
-        # ==========================================
-
-        self.pet = Pet(
-            self.state
-        )
-
-        # ==========================================
-        # INVENTORY
-        # ==========================================
-
+        self.pet = Pet(self.state)
         self.inventory = Inventory()
+        self.shop = Shop(self.state, self.inventory)
+        self.minigames = MiniGames(self.state)
+        self.save_system = SaveSystem(self.state, self.inventory)
+        self.weather = Weather(self.state)
 
-        # ==========================================
-        # SHOP
-        # ==========================================
-
-        self.shop = Shop(
-
-            self.state,
-
-            self.inventory
-        )
-
-        # ==========================================
-        # MINI GAMES
-        # ==========================================
-
-        self.minigames = MiniGames(
-            self.state
-        )
-
-        # ==========================================
-        # SAVE SYSTEM
-        # ==========================================
-
-        self.save_system = SaveSystem(
-
-            self.state,
-
-            self.inventory
-        )
-
-        # ==========================================
-        # WEATHER
-        # ==========================================
-
-        self.weather = Weather(
-
-            self.state
-        )
-
-        # ==========================================
-        # UI
-        # ==========================================
-
-        self.ui = TofuUI(
-
-            self.window
-        )
-
-        # Connect state to UI
-
-        self.ui.set_state(
-            self.state
-        )
-
-        # ==========================================
-        # ANIMATION
-        # ==========================================
-
-        self.animation = TofuAnimation(
-
-            self.ui,
-
-            self.state
-        )
-
-        # ==========================================
-        # INITIAL DISPLAY
-        # ==========================================
-
-        self.ui.draw_all()
-
-        # ==========================================
-        # LOAD SAVE DATA
-        # ==========================================
-
+        self.window = TofuWindow(self.state)
+        self.window.parent_app = self
         self.save_system.load()
 
-        # Redraw after loading
+        self.needs_timer = QTimer(self.window)
+        self.needs_timer.timeout.connect(self.update_needs)
+        self.needs_timer.start(1000)
 
-        self.ui.draw_all()
+        self.behavior_timer = QTimer(self.window)
+        self.behavior_timer.timeout.connect(self.random_behavior)
+        self.behavior_timer.start(5000)
 
-        # ==========================================
-        # START ANIMATION
-        # ==========================================
-
-        self.animation.update()
-
-        # ==========================================
-        # NEEDS TIMER
-        # ==========================================
-
-        self.update_needs()
-
-        # ==========================================
-        # RANDOM BEHAVIOR TIMER
-        # ==========================================
-
-        self.random_behavior()
-
-        # ==========================================
-        # WEATHER UPDATE
-        # ==========================================
-
-        self.window.after(
-            1000,
-            self.update_weather
-        )
-
-    # ==========================================
-    # UPDATE NEEDS
-    # ==========================================
+        self.weather_timer = QTimer(self.window)
+        self.weather_timer.timeout.connect(self.update_weather)
+        self.weather_timer.start(30 * 60 * 1000)
 
     def update_needs(self):
-
         self.state.update_needs()
-
-        self.window.after(
-            1000,
-            self.update_needs
-        )
-
-    # ==========================================
-    # RANDOM BEHAVIOR
-    # ==========================================
+        self.window.centralWidget().update()
 
     def random_behavior(self):
-
         self.state.random_behavior()
-
-        self.window.after(
-            5000,
-            self.random_behavior
-        )
-
-    # ==========================================
-    # WEATHER
-    # ==========================================
+        self.window.centralWidget().update()
 
     def update_weather(self):
-
-        # Run weather update in the background
-        # so the UI does not freeze for long.
-
         self.weather.update_weather()
-
-        self.ui.draw_room()
-
-        self.ui.draw_status()
-
-        self.ui.draw_action()
-
-        self.ui.draw_clock()
-
-        self.window.after(
-            30 * 60 * 1000,
-            self.update_weather
-        )
-
-    # ==========================================
-    # CLOSE APPLICATION
-    # ==========================================
+        self.window.centralWidget().update()
 
     def close(self):
-
         self.save_system.save()
-
-        self.window.destroy()
-
-    # ==========================================
-    # RUN
-    # ==========================================
+        self.qt_app.quit()
 
     def run(self):
+        self.window.show()
+        return self.qt_app.exec()
 
-        self.window.mainloop()
-
-
-# ==============================================
-# START PROGRAM
-# ==============================================
 
 if __name__ == "__main__":
-
-    app = TofuApp()
-
-    app.run()
+    sys.exit(TofuApp().run())

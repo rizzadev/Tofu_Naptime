@@ -5,28 +5,17 @@ class TofuState:
 
     def __init__(self):
 
-        # ==========================================
-        # POSITION
-        # ==========================================
+        self.x = 470
+        self.y = 400
 
-        self.x = 450
-        self.y = 395
-
-        self.target_x = 450
-
-        # ==========================================
-        # BASIC STATE
-        # ==========================================
+        self.target_x = 470
+        self.velocity_x = 0.0
 
         self.sleeping = True
         self.playing = False
         self.walking = False
-        self.drinking = False
         self.eating = False
-
-        # ==========================================
-        # WORLD
-        # ==========================================
+        self.drinking = False
 
         self.is_night = True
 
@@ -34,18 +23,10 @@ class TofuState:
         self.weather_description = "Clear"
         self.temperature = None
 
-        # ==========================================
-        # NEEDS
-        # ==========================================
-
         self.energy = 85
         self.happiness = 75
         self.hunger = 80
         self.thirst = 80
-
-        # ==========================================
-        # PET INFORMATION
-        # ==========================================
 
         self.mood = "Sleepy"
 
@@ -56,10 +37,6 @@ class TofuState:
 
         self.pet_count = 0
 
-        # ==========================================
-        # ACTION MESSAGE
-        # ==========================================
-
         self.action_text = "Tofu is sleeping..."
 
     # ==========================================
@@ -68,18 +45,35 @@ class TofuState:
 
     def feed(self):
 
-        self.hunger = min(100, self.hunger + 25)
-        self.happiness = min(100, self.happiness + 5)
+        if self.eating:
+            return
 
-        self.eating = True
-        self.drinking = False
+        if self.hunger >= 100:
+
+            self.action_text = "Tofu is already full!"
+
+            return
+
+        self.sleeping = False
         self.playing = False
         self.walking = False
-        self.sleeping = False
+        self.drinking = False
+        self.eating = True
 
-        self.action_text = "Yum! Tofu is eating!"
+        self.hunger = min(
+            100,
+            self.hunger + 25
+        )
+
+        self.happiness = min(
+            100,
+            self.happiness + 5
+        )
+
+        self.action_text = "Tofu is eating!"
 
         self.add_xp(5)
+
         self.update_mood()
 
     # ==========================================
@@ -88,79 +82,32 @@ class TofuState:
 
     def drink(self):
 
-        self.thirst = min(100, self.thirst + 30)
-        self.happiness = min(100, self.happiness + 3)
+        if self.thirst >= 100:
 
-        self.drinking = True
-        self.eating = False
-        self.playing = False
-        self.walking = False
-        self.sleeping = False
-
-        self.action_text = "Tofu is drinking!"
-
-        self.add_xp(5)
-        self.update_mood()
-
-    # ==========================================
-    # WAKE
-    # ==========================================
-
-    def wake(self):
-
-        self.sleeping = False
-        self.playing = False
-        self.walking = False
-        self.drinking = False
-        self.eating = False
-
-        self.action_text = "Good morning, Tofu!"
-
-        self.update_mood()
-
-    # ==========================================
-    # SLEEP
-    # ==========================================
-
-    def sleep(self):
-
-        self.sleeping = True
-        self.playing = False
-        self.walking = False
-        self.drinking = False
-        self.eating = False
-
-        self.target_x = self.x
-
-        self.action_text = "Tofu is sleeping..."
-
-        self.update_mood()
-
-    # ==========================================
-    # PLAY
-    # ==========================================
-
-    def play(self, target_x):
-
-        if self.energy <= 10:
-
-            self.action_text = "Tofu is too tired to play."
+            self.action_text = "Tofu is not thirsty!"
 
             return
 
         self.sleeping = False
-        self.playing = True
-        self.walking = True
-        self.drinking = False
+        self.playing = False
+        self.walking = False
         self.eating = False
+        self.drinking = True
 
-        self.target_x = max(260, min(650, target_x))
+        self.thirst = min(
+            100,
+            self.thirst + 30
+        )
 
-        self.happiness = min(100, self.happiness + 10)
+        self.happiness = min(
+            100,
+            self.happiness + 3
+        )
 
-        self.action_text = "Tofu is playing!"
+        self.action_text = "Tofu is drinking!"
 
-        self.add_xp(8)
+        self.add_xp(5)
+
         self.update_mood()
 
     # ==========================================
@@ -171,13 +118,103 @@ class TofuState:
 
         self.sleeping = False
 
-        self.happiness = min(100, self.happiness + 7)
+        self.happiness = min(
+            100,
+            self.happiness + 7
+        )
 
         self.pet_count += 1
 
         self.action_text = "Tofu loves being petted!"
 
         self.add_xp(3)
+
+        self.update_mood()
+
+    # ==========================================
+    # PLAY
+    # ==========================================
+
+    def play(self, target_x=None):
+
+        if self.energy < 10:
+
+            self.action_text = (
+                "Tofu is too tired to play."
+            )
+
+            return
+
+        if target_x is None:
+
+            target_x = random.randint(
+                300,
+                650
+            )
+
+        self.sleeping = False
+        self.playing = True
+        self.walking = True
+        self.eating = False
+        self.drinking = False
+
+        self.target_x = max(
+            300,
+            min(
+                650,
+                target_x
+            )
+        )
+
+        self.happiness = min(
+            100,
+            self.happiness + 10
+        )
+
+        self.action_text = "Tofu is playing!"
+
+        self.add_xp(8)
+
+        self.update_mood()
+
+    # ==========================================
+    # SLEEP
+    # ==========================================
+
+    def sleep(self):
+
+        self.sleeping = True
+
+        self.playing = False
+        self.walking = False
+        self.eating = False
+        self.drinking = False
+
+        self.target_x = self.x
+
+        self.action_text = (
+            "Tofu is sleeping..."
+        )
+
+        self.update_mood()
+
+    # ==========================================
+    # WAKE
+    # ==========================================
+
+    def wake(self):
+
+        self.sleeping = False
+
+        self.playing = False
+        self.walking = False
+        self.eating = False
+        self.drinking = False
+
+        self.action_text = (
+            "Good morning, Tofu!"
+        )
+
         self.update_mood()
 
     # ==========================================
@@ -190,48 +227,40 @@ class TofuState:
 
         if self.is_night:
 
-            self.action_text = "Night has arrived."
+            self.action_text = (
+                "Night has arrived."
+            )
 
         else:
 
-            self.action_text = "A new day begins!"
-
-        self.update_mood()
+            self.action_text = (
+                "A new day begins!"
+            )
 
     # ==========================================
-    # SET WEATHER
+    # WEATHER
     # ==========================================
 
     def set_weather(self, weather):
 
         self.weather = weather
+
         self.weather_description = weather
 
-        self.action_text = f"The weather is now {weather}."
-
-    # ==========================================
-    # REAL WEATHER
-    # ==========================================
-
-    def set_real_weather(self, weather, temperature):
+    def set_real_weather(
+        self,
+        weather,
+        temperature
+    ):
 
         self.weather = weather
+
         self.weather_description = weather
+
         self.temperature = temperature
 
-        if temperature is not None:
-
-            self.action_text = (
-                f"Real weather: {weather} "
-                f"({temperature:.0f}°C)"
-            )
-
-        else:
-
-            self.action_text = f"Real weather: {weather}"
-
     # ==========================================
-    # ADD XP
+    # XP
     # ==========================================
 
     def add_xp(self, amount):
@@ -249,11 +278,12 @@ class TofuState:
             self.coins += 25
 
             self.action_text = (
-                f"Tofu reached Level {self.level}!"
+                f"Tofu reached Level "
+                f"{self.level}!"
             )
 
     # ==========================================
-    # UPDATE MOOD
+    # MOOD
     # ==========================================
 
     def update_mood(self):
@@ -287,7 +317,7 @@ class TofuState:
             self.mood = "Relaxed"
 
     # ==========================================
-    # UPDATE NEEDS
+    # NEEDS
     # ==========================================
 
     def update_needs(self):
@@ -352,44 +382,23 @@ class TofuState:
         self.update_mood()
 
     # ==========================================
-    # RANDOM BEHAVIOR
-    # ==========================================
-
-    def random_behavior(self):
-
-        if self.sleeping:
-            return
-
-        chance = random.random()
-
-        if chance < 0.04:
-
-            target = random.randint(300, 600)
-
-            self.play(target)
-
-        elif chance < 0.07:
-
-            self.action_text = "Tofu is looking around."
-
-        elif chance < 0.09:
-
-            self.action_text = "Tofu is relaxing."
-
-    # ==========================================
-    # UPDATE POSITION
+    # MOVEMENT
     # ==========================================
 
     def update_position(self):
 
         if not self.walking:
+            self.velocity_x *= 0.72
             return
 
-        difference = self.target_x - self.x
+        difference = (
+            self.target_x - self.x
+        )
 
         if abs(difference) <= 5:
 
             self.x = self.target_x
+            self.velocity_x = 0.0
 
             self.walking = False
             self.playing = False
@@ -402,10 +411,37 @@ class TofuState:
 
             return
 
-        if difference > 0:
+        direction = 1 if difference > 0 else -1
+        self.velocity_x += direction * 0.7
+        self.velocity_x = max(-3.6, min(3.6, self.velocity_x))
+        self.x += self.velocity_x
 
-            self.x += 3
+    # ==========================================
+    # RANDOM BEHAVIOR
+    # ==========================================
 
-        else:
+    def random_behavior(self):
 
-            self.x -= 3
+        if self.sleeping:
+            return
+
+        if self.eating:
+            return
+
+        chance = random.random()
+
+        if chance < 0.04:
+
+            self.play()
+
+        elif chance < 0.07:
+
+            self.action_text = (
+                "Tofu is looking around."
+            )
+
+        elif chance < 0.09:
+
+            self.action_text = (
+                "Tofu is relaxing."
+            )
