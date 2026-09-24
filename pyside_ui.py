@@ -120,6 +120,15 @@ class GameView(QWidget):
             return
 
         point = event.position()
+        if self.is_over_bed(point):
+            self.hover_target = None
+            self.state.target_x = 470
+            self.state.walking = True
+            self.state.playing = False
+            self.state.action_text = "Tofu is going to bed."
+            self.update()
+            return
+
         target = self.hit_test(point)
         self.hover_target = target
 
@@ -131,11 +140,6 @@ class GameView(QWidget):
             self.state.feed()
         elif target == "water":
             self.state.drink()
-        elif target == "bed":
-            self.state.target_x = 470
-            self.state.walking = True
-            self.state.playing = False
-            self.state.action_text = "Tofu is going to bed."
         elif target in ("toy", "yarn"):
             self.drag_target = "toy"
             self.state.action_text = "Drag the toy for Tofu!"
@@ -158,6 +162,9 @@ class GameView(QWidget):
         dy = (point.y() - self.state.y) / 140
         return dx * dx + dy * dy <= 1
 
+    def is_over_bed(self, point):
+        return QRectF(80, 455, 740, 235).contains(point)
+
     def hit_test(self, point):
         x = point.x()
         y = point.y()
@@ -172,8 +179,6 @@ class GameView(QWidget):
             return "body"
         if QRectF(pet_x + 55, pet_y - 5, 125, 85).contains(point):
             return "tail"
-        if QRectF(80, 455, 740, 235).contains(point):
-            return "bed"
         if QRectF(35, 405, 75, 75).contains(point):
             return "water"
         if QRectF(24, 20, 160, 48).contains(point):
@@ -199,6 +204,7 @@ class GameView(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.draw_room(painter)
+        self.draw_plant(painter)
         self.draw_hover_background(painter)
         self.draw_hover_particles(painter)
         self.draw_toys(painter)
@@ -206,6 +212,7 @@ class GameView(QWidget):
         self.draw_reference_cat(painter)
         self.draw_food(painter)
         self.draw_action(painter)
+        self.draw_water_station(painter)
         self.draw_clock(painter)
         self.draw_interaction_overlay(painter)
         painter.end()
@@ -261,11 +268,18 @@ class GameView(QWidget):
         painter.setPen(QPen(QColor("#d9858c"), 2))
         for y in range(670, 900, 32):
             painter.drawLine(0, y, 900, y)
-        self.fill_rect(painter, (80, 455, 740, 235), "#c994e9", 72)
-        self.fill_rect(painter, (110, 478, 680, 185), "#9185e8", 50)
+
+        rug_left = 80
+        rug_top = 455
+        rug_width = 740
+        rug_height = 235
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        self.fill_rect(painter, (rug_left, rug_top, rug_width, rug_height), "#c994e9", 72)
+        self.fill_rect(painter, (rug_left + 30, rug_top + 23, 680, 185), "#9185e8", 50)
         painter.setPen(QPen(QColor("#b5b2ff"), 3))
         for x in range(150, 800, 90):
-            painter.drawLine(x, 490, x - 20, 650)
+            painter.drawLine(x, rug_top + 35, x - 20, rug_top + 195)
         for y in range(510, 650, 42):
             painter.drawLine(125, y, 775, y + 12)
 
@@ -280,6 +294,8 @@ class GameView(QWidget):
     def draw_hover_background(self, painter):
         point = self.window.pointer
         if point.x() < 0 or point.y() < 0:
+            return
+        if self.is_over_bed(point):
             return
         pulse = 1 + math.sin(self.window.phase) * 0.08
         painter.setPen(Qt.PenStyle.NoPen)
@@ -297,6 +313,8 @@ class GameView(QWidget):
         point = self.window.pointer
         if point.x() < 0 or point.y() < 0:
             return
+        if self.is_over_bed(point):
+            return
 
         pulse = math.sin(self.window.phase * 2.2)
         painter.setPen(QPen(QColor(255, 255, 255, 150), 2))
@@ -313,6 +331,65 @@ class GameView(QWidget):
             painter.setPen(QPen(QColor(255, 235, 255, 130), 2))
             radius = 34 + pulse * 4
             painter.drawEllipse(QRectF(point.x() - radius, point.y() - radius * 0.32, radius * 2, radius * 0.64))
+
+    def draw_plant(self, painter):
+        """Draw the decorative plant that occupies the room's right nook."""
+        hovered = self.hover_target == "plant"
+        sway = math.sin(self.window.phase * 1.4) * 2
+        x = 655
+        base_y = 365
+
+        painter.save()
+        painter.setPen(Qt.PenStyle.NoPen)
+
+        if hovered:
+            glow = 48 + math.sin(self.window.phase * 2) * 4
+            painter.setBrush(QColor(255, 245, 190, 55))
+            painter.drawEllipse(QRectF(x - glow, base_y - 135 - glow / 2, glow * 2, glow * 2))
+
+        # Soft shadow anchors the plant to the floor behind the rug.
+        painter.setBrush(QColor(120, 70, 105, 45))
+        painter.drawEllipse(QRectF(x - 58, base_y + 2, 116, 16))
+
+        # Stems sit behind the leaves and pot.
+        stem_pen = QPen(QColor("#4f8d62"), 5)
+        stem_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(stem_pen)
+        painter.drawLine(x, base_y - 28, x - 30 + sway, base_y - 105)
+        painter.drawLine(x + 2, base_y - 30, x + 34 + sway, base_y - 125)
+        painter.drawLine(x - 4, base_y - 30, x + 4 + sway, base_y - 145)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        leaf_colors = (QColor("#72b879"), QColor("#5da66c"), QColor("#8bc77f"))
+        leaves = (
+            (x - 51 + sway, base_y - 112, 58, 28, -28),
+            (x + 24 + sway, base_y - 130, 62, 30, 26),
+            (x - 25 + sway, base_y - 151, 58, 30, -8),
+            (x + 10 + sway, base_y - 82, 62, 30, 32),
+            (x - 49 + sway, base_y - 76, 60, 29, -35),
+        )
+        for index, (leaf_x, leaf_y, width, height, angle) in enumerate(leaves):
+            painter.save()
+            painter.translate(leaf_x + width / 2, leaf_y + height / 2)
+            painter.rotate(angle)
+            painter.setBrush(leaf_colors[index % len(leaf_colors)])
+            painter.drawEllipse(QRectF(-width / 2, -height / 2, width, height))
+            painter.restore()
+
+        # Terracotta pot with a bright rim and a small highlight.
+        painter.setBrush(QColor("#d78370"))
+        painter.drawRoundedRect(QRectF(x - 42, base_y - 42, 84, 58), 12, 12)
+        painter.setBrush(QColor("#b96961"))
+        painter.drawEllipse(QRectF(x - 47, base_y - 49, 94, 20))
+        painter.setBrush(QColor("#7d5548"))
+        painter.drawEllipse(QRectF(x - 36, base_y - 45, 72, 12))
+        painter.setBrush(QColor(255, 218, 195, 130))
+        painter.drawRoundedRect(QRectF(x - 27, base_y - 28, 10, 34), 5, 5)
+
+        if hovered:
+            painter.setPen(QPen(QColor("#fff7d6"), 3))
+            painter.drawEllipse(QRectF(x - 72, base_y - 174, 144, 188))
+        painter.restore()
 
     def draw_interaction_overlay(self, painter):
         target = self.hover_target
@@ -408,7 +485,7 @@ class GameView(QWidget):
             if card_hovered:
                 painter.setPen(QPen(QColor("#ffffff"), 3))
                 painter.drawRoundedRect(QRectF(x + 2, 777, 166, 78), 16, 16)
-            self.fill_rect(painter, (x + 25, 822, 120, 26), "#70d94b", 13)
+            self.fill_rect(painter, (x + 25, 822, 120, 26), "#70d94b", 13) 
             self.draw_text(painter, x + 85, 835, "SELECT", "#ffffff", 10, True, Qt.AlignmentFlag.AlignCenter)
             self.draw_text(painter, x + 85, 785, label, "#a84c7e", 11, True, Qt.AlignmentFlag.AlignCenter)
 
@@ -746,13 +823,46 @@ class GameView(QWidget):
         self.fill_rect(painter, (285, 145, 360, 45), "#fff4fa", 22)
         self.draw_text(painter, 465, 174, self.state.action_text, "#a64f7b", 11, True, Qt.AlignmentFlag.AlignCenter)
 
+    def draw_water_station(self, painter):
+        x, y, w, h = 32, 414, 96, 74
+        painter.setPen(QPen(QColor("#7ab7d9"), 2))
+        painter.setBrush(QColor("#eaf8ff"))
+        painter.drawRoundedRect(QRectF(x, y, w, h), 20, 20)
+        painter.setBrush(QColor("#9ad8f7"))
+        painter.drawRoundedRect(QRectF(x + 10, y + 12, w - 20, h - 22), 16, 16)
+        painter.setPen(QPen(QColor("#4c8ec5"), 3))
+        painter.setBrush(QColor("#dff4ff"))
+        painter.drawEllipse(QRectF(x + 27, y + 22, 14, 18))
+        painter.drawEllipse(QRectF(x + 42, y + 18, 16, 22))
+        painter.drawEllipse(QRectF(x + 58, y + 24, 12, 16))
+        painter.setPen(QPen(QColor("#4d7bab"), 2))
+        painter.drawLine(x + 20, y + 48, x + w - 20, y + 48)
+        painter.setPen(QPen(QColor("#4c7aa7"), 2))
+        self.draw_text(painter, x + w / 2, y + h - 10, "WATER", "#4d7bab", 8, True, Qt.AlignmentFlag.AlignCenter)
+
     def draw_clock(self, painter):
-        color = "#9a3f75"
-        self.draw_text(painter, 760, 245, datetime.now().strftime("%I:%M %p"), color, 14, True, Qt.AlignmentFlag.AlignCenter)
+        clock_x = 760
+        clock_y = 236
         weather = self.state.weather
         if self.state.temperature is not None:
-            weather += f" | {self.state.temperature:.0f} C"
-        self.draw_text(painter, 760, 270, weather, color, 10, False, Qt.AlignmentFlag.AlignCenter)
+            weather += f" | {self.state.temperature:.0f}C"
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#fff7fb"))
+        painter.drawRoundedRect(QRectF(clock_x - 75, clock_y - 18, 150, 64), 22, 22)
+        painter.setBrush(QColor("#dff3ff"))
+        painter.drawRoundedRect(QRectF(clock_x - 68, clock_y - 12, 136, 52), 18, 18)
+
+        painter.setPen(QPen(QColor("#8bc9ea"), 3))
+        painter.setBrush(QColor("#fff5a8"))
+        painter.drawEllipse(QRectF(clock_x - 40, clock_y - 2, 18, 18))
+        painter.setPen(QPen(QColor("#7aa5c9"), 2))
+        painter.drawLine(clock_x - 31, clock_y + 8, clock_x - 31, clock_y + 22)
+        painter.drawLine(clock_x - 18, clock_y + 9, clock_x - 18, clock_y + 22)
+
+        color = "#9a3f75"
+        self.draw_text(painter, clock_x, clock_y + 4, datetime.now().strftime("%I:%M %p"), color, 13, True, Qt.AlignmentFlag.AlignCenter)
+        self.draw_text(painter, clock_x, clock_y + 23, weather, "#5f85a7", 9, False, Qt.AlignmentFlag.AlignCenter)
 
     def draw_text(self, painter, x, y, text, color, size, bold=False, alignment=Qt.AlignmentFlag.AlignLeft):
         font = QFont("Segoe UI", size)
